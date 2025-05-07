@@ -1,6 +1,7 @@
 # HCS-AI Agent: Smart Contract Auditing on Hedera
 
 **HCS-AI Agent** leverages AI and decentralized communication via Hedera Consensus Service (HCS) to provide automated/AI-assisted smart contract auditing.
+[![Demo](https://img.youtube.com/vi/r3DLMnQ4nYw/0.jpg)](https://www.youtube.com/watch?v=r3DLMnQ4nYw)
 
 ## Project Description
 
