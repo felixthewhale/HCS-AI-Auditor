@@ -2,6 +2,9 @@
 import winston from 'winston';
 import { config } from './config.js'; // Import config to get log level
 import path from 'path';
+import {
+    ContractId,
+} from "@hashgraph/sdk";
 const { combine, timestamp, printf, colorize, align } = winston.format;
 
 // Define the log format
@@ -35,6 +38,55 @@ export const logger = winston.createLogger({
     //     // new winston.transports.File({ filename: 'rejections.log' })
     // ]
 });
+/**
+ * Queries the Hedera Mirror Node REST API for contract details.
+ * @param {string} contractIdOrAddress - The contract ID (0.0.X) or EVM address (0x...).
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function queryMirrorNodeContract(contractIdOrAddress) {
+    // Determine the correct Mirror Node base URL based on network
+    let mirrorNodeUrl;
+    switch (config.hederaNetwork.toLowerCase()) {
+        case 'mainnet':
+            mirrorNodeUrl = 'https://mainnet-public.mirrornode.hedera.com';
+            break;
+        case 'testnet':
+            mirrorNodeUrl = 'https://testnet.mirrornode.hedera.com';
+            break;
+        // Add previewnet if needed
+        default:
+            logger.error(`[MirrorQuery] Unsupported Hedera network for Mirror Node: ${config.hederaNetwork}`);
+            return { success: false, error: `Unsupported network: ${config.hederaNetwork}` };
+    }
+
+    const apiUrl = `${mirrorNodeUrl}/api/v1/contracts/${contractIdOrAddress}`;
+    logger.debug(`[MirrorQuery] Querying Mirror Node: ${apiUrl}`);
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) {
+            let errorText = `Status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorText = JSON.stringify(errorData);
+            } catch (e) { /* Ignore */ }
+            logger.warn(`[MirrorQuery] Failed to fetch contract details for ${contractIdOrAddress}. ${errorText}`);
+            return { success: false, error: `Mirror Node API error (Status ${response.status}) for ${contractIdOrAddress}` };
+        }
+
+        const data = await response.json();
+        logger.debug(`[MirrorQuery] Successfully fetched details for ${contractIdOrAddress}`);
+        return { success: true, data: data };
+
+    } catch (error) {
+        logger.error(`[MirrorQuery] Network error fetching from Mirror Node for ${contractIdOrAddress}: ${error.message}`);
+        return { success: false, error: `Network error querying Mirror Node: ${error.message}` };
+    }
+}
 
 /**
  * Fetches verified source code files from the verification service.
@@ -53,18 +105,27 @@ export async function fetchVerifiedSource(contractId) {
     }
 
     // --- Convert Hedera ID to EVM Address ---
+// --- 1. Query Mirror Node for the EVM Address ---
+    const mirrorResult = await queryMirrorNodeContract(contractId);
+    let evmAddressForApi;
     let evmAddress;
-    try {
-         const parts = contractId.split('.'); // Should work now since we validated contractId is a string
-         const num = BigInt(parts[2]);
-         evmAddress = '0x' + num.toString(16).padStart(40, '0');
-         logger.debug(`[Fetcher] Converted Hedera ID ${contractId} to EVM address ${evmAddress}`);
-    } catch (convError) {
-        // This catch is less likely now but good as a fallback
-        logger.error(`[Fetcher] Failed during Hedera ID ${contractId} conversion: ${convError.message}`);
-        return { success: false, error: `Internal error converting contract ID ${contractId}` };
-    }
 
+    if (mirrorResult.success && mirrorResult.data?.evm_address) {
+        evmAddressForApi = mirrorResult.data.evm_address;
+        logger.info(`[Fetcher] Found EVM address ${evmAddressForApi} for ${contractId} via Mirror Node.`);
+    } else {
+        logger.warn(`[Fetcher] Could not get distinct EVM address for ${contractId} from Mirror Node. Falling back to long-zero address. Error: ${mirrorResult.error || 'No evm_address field'}`);
+        // Fallback to long-zero format
+        try {
+             const contractIdObj = ContractId.fromString(contractId);
+             const solidityAddress = contractIdObj.toSolidityAddress();
+             evmAddressForApi = '0x' + solidityAddress;
+             logger.info(`[Fetcher] Using fallback long-zero address: ${evmAddressForApi}`);
+        } catch (convError) {
+            logger.error(`[Fetcher] Failed during Hedera ID ${contractId} conversion for fallback: ${convError.message}`);
+            return { success: false, error: `Internal error converting contract ID ${contractId} for fallback` };
+        }
+    }
     // --- Determine Network Code & Construct URL ---
     const networkCode = config.hederaNetwork === 'mainnet' ? '295' : null; // Only mainnet supported for now
     if (!networkCode) {
@@ -72,12 +133,12 @@ export async function fetchVerifiedSource(contractId) {
          logger.error(`[Fetcher] ${errorMsg}`);
          return { success: false, error: errorMsg };
     }
-    const apiUrl = `https://server-verify.hashscan.io/files/any/${networkCode}/${evmAddress}`;
-    logger.info(`[Fetcher] Fetching source code from: ${apiUrl}`);
+    const verificationApiUrl = `https://server-verify.hashscan.io/files/any/${networkCode}/${evmAddressForApi}`;
+    logger.info(`[Fetcher] Fetching source code from verification API: ${verificationApiUrl}`);
 
     // --- Make API Request ---
     try {
-        const response = await fetch(apiUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+        const response = await fetch(verificationApiUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
 
         // --- Handle HTTP Errors ---
         if (!response.ok) {
@@ -163,5 +224,4 @@ export async function fetchVerifiedSource(contractId) {
         return { success: false, error: `Network/Parsing error fetching source code: ${error.message}` };
     }
 }
-// fetchVerifiedSource("0.0.1456985")
 logger.info('Logger initialized.'); 

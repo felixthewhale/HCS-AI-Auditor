@@ -7,14 +7,12 @@ export const config = {
     hederaAccountId: process.env.HEDERA_ACCOUNT_ID,
     hederaPrivateKey: process.env.HEDERA_PRIVATE_KEY,
     hederaNetwork: process.env.HEDERA_NETWORK || 'testnet',
-    // hcsRequestTopicId: process.env.HCS_REQUEST_TOPIC_ID,
     logLevel: process.env.LOG_LEVEL || 'info',
-    agentHederaAccountId: process.env.HEDERA_ACCOUNT_ID, // Reuse existing...Or dedicated agent ID?
+    agentHederaAccountId: process.env.HEDERA_ACCOUNT_ID,
     agentInboundTopicId: process.env.AGENT_INBOUND_TOPIC_ID, // NEW: Agent's public HCS-10 inbound topic
     agentOutboundTopicId: process.env.AGENT_OUTBOUND_TOPIC_ID, // NEW: Agent's public HCS-10 outbound topic
-    // dockerSocketPath: process.env.DOCKER_SOCKET_PATH,
-    tempContractDir: './contracts-temp', // Ensure this exists and is gitignored
-    auditToolImage: 'hedera-audit-tools:latest' // Name of the image built earlier
+    tempContractDir: './contracts-temp', // must exist and gitignored
+    auditToolImage: 'hedera-audit-tools:latest'
 };
 console.log(config)
 // Basic validation

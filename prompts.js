@@ -36,39 +36,37 @@ Workflow Steps:
     - "tools_used": An array listing the names of the tools executed during the audit process (e.g., ["slither", "forge test"]).
 9. Finalize: Call the 'finalizeAuditReport' function ONLY when the full audit process is complete, you have analyzed all results (including tests), and you have constructed the complete, structured JSON report object conforming to the specified format. Do not call it before the report is ready.
 
-You have total ${config.MAX_STEPS} steps.
+You have total ${config.MAX_STEPS} steps, send report before final ${config.MAX_STEPS} step.
 Available Tools:
 
 - runAuditToolInDocker: Executes static analysis tools like 'slither'. Requires toolName, contractCode, optional fileName. Returns { success: boolean, output: string|object, error: string }. Analyze 'output' for results.
 - executeSolidityTest: Compiles and runs a provided Solidity test contract snippet using Foundry. Requires testContractCode, testContractFileName (ends in .t.sol), originalContractCode, originalContractFileName. Returns { success: boolean, output: string, error: string }. Analyze 'output' for PASS/FAIL/compilation errors.
 - finalizeAuditReport: Submits the final structured JSON report. Requires a 'report' object parameter conforming to the specified format. Call only when done.
 
+Example of dynamic testing:
 import "forge-std/Test.sol";
-// Assuming the contract WHBAR.sol was fetched with original path 'contracts/WHBAR.sol'
+// Assuming the contract xxx.sol was fetched with original path 'contracts/xxx.sol'
 // and placed inside the standard 'src/' directory for Foundry tests,
-// the import path becomes 'contracts/WHBAR.sol' relative to 'src/'.
-import "forge-std/Test.sol";
-// Assuming the contract WHBAR.sol was fetched with original path 'contracts/WHBAR.sol'
-// and placed inside the standard 'src/' directory for Foundry tests,
-// the import path becomes 'contracts/WHBAR.sol' relative to 'src/'.
-import "contracts/WHBAR.sol"; // Example import for a contract in src/contracts/
+// the import path becomes 'contracts/xxx.sol' relative to 'src/'.
 
-contract WHBARTest is Test { // Changed example name slightly
-    WHBAR public whbar;
+import "contracts/xxx.sol"; // Example import for a contract in src/contracts/
+
+contract xxxTest is Test { // Changed example name slightly
+    xxx public xxx;
     address deployer = address(0x1);
 
     function setUp() public {
         vm.prank(deployer);
         // !!! CRITICAL NOTE for HTS Contracts !!!
-        // The real WHBAR constructor calls HTS precompiles (e.g., createFungibleToken).
+        // The real xxx constructor calls HTS precompiles (e.g., createFungibleToken).
         // These precompiles DO NOT exist in the standard Foundry test environment.
-        // This call "new WHBAR()" will likely REVERT unless the constructor logic
+        // This call "new xxx()" will likely REVERT unless the constructor logic
         // or the HTS calls within it are mocked or bypassed.
         // This example shows structure, but deploying HTS-dependent contracts requires advanced mocking.
-        whbar = new WHBAR(); // << LIKELY TO FAIL WITHOUT MOCKING HTS
+        xxx = new xxx(); // << LIKELY TO FAIL WITHOUT MOCKING HTS
     }
 
-    // Example test function (adjust based on WHBAR's actual functions)
+    // Example test function (adjust based on xxx's actual functions)
     function testDepositAndBalance() public {
         // Arrange
         address user = address(0x2);
@@ -76,21 +74,24 @@ contract WHBARTest is Test { // Changed example name slightly
 
         // Act: Simulate deposit
         // !!! CRITICAL NOTE for HTS Contracts !!!
-        // The real WHBAR deposit/withdraw functions call HTS precompiles (mint, transfer, burn).
+        // The real xxx deposit/withdraw functions call HTS precompiles (mint, transfer, burn).
         // These calls WILL FAIL in the test environment without mocking.
         // Tests should focus on PURE SOLIDITY logic within the contract,
         // or use mock contracts to simulate HTS responses if necessary.
         // Example call structure (will likely fail):
         // vm.prank(user);
-        // whbar.deposit{value: depositAmount}(user, user); // << LIKELY TO FAIL WITHOUT MOCKING HTS
+        // xxx.deposit{value: depositAmount}(user, user); // << LIKELY TO FAIL WITHOUT MOCKING HTS
 
         // Assert: Check internal state NOT dependent on HTS success, or ERC20 balance if mocking works.
-        // uint256 balance = whbar.balanceOf(user);
+        // uint256 balance = xxx.balanceOf(user);
         // assertEq(balance, depositAmount, "Balance should match deposit");
     }
 }
 
+
+
 // General Note on HTS Testing:
+// Consider HTS Precompiles as safe, focus on custom code.
 // Testing functions that make external calls to Hedera Token Service (HTS)
 // precompiles (addresses like 0x167) is COMPLEX. Foundry's test EVM does
 // NOT simulate these services. Calls to HTS WILL FAIL by default.
@@ -166,7 +167,7 @@ Returns { success: boolean, output?: string, error?: string }. Analyze 'output' 
                         },
                         testContractFileName: {
                             type: "string",
-                            description: "The filename for the test contract (e.g., 'WHBARTest.t.sol'). MUST end with '.t.sol'. Do NOT include 'src/' or any other directory paths; the file will be placed directly in the 'test/' directory."
+                            description: "The filename for the test contract (e.g., 'XXXTest.t.sol'). MUST end with '.t.sol'. Do NOT include 'src/' or any other directory paths; the file will be placed directly in the 'test/' directory."
                         },
                         originalContractCode: {
                             type: "string",

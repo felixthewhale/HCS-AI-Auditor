@@ -16,7 +16,8 @@ const SIMULATE_REQUEST = false;
 
 const genAI = new GoogleGenerativeAI(config.googleApiKey);
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    // model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash-preview-04-17",
     systemInstruction: systemInstruction,
     tools: tools,
 });
@@ -37,6 +38,7 @@ async function processAuditRequest(requestData) {
     let fetchedMainFilePath = null;
 
     while (loopCount < MAX_LOOPS) {
+        await new Promise(resolve => setTimeout(resolve, 10000)); // DEMO Slow
         loopCount++;
         const response = result.response;
 
@@ -176,7 +178,7 @@ async function processAuditRequest(requestData) {
         }
 
         if (functionResponses.length > 0) {
-            result = await chat.sendMessage(functionResponses);
+            result = await chat.sendMessage(`Step ${loopCount+1}/${MAX_LOOPS}\n${functionResponses}`);
         } else {
             logger.warn("[Agent] No function calls processed or responses generated in loop. Breaking.");
             break;
